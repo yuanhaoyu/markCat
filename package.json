@@ -4,7 +4,10 @@
   "description": "chrome extensions",
   "main": "index.js",
   "scripts": {
+    "dev": "cd app && npm run serve",
+    "install": "cd app && npm install",
     "build": "cd app && npm run build",
+    "pack": "rm -rf dist && npm run build && cp -r app/dist dist && cp manifest.json dist/manifest.json && cp cat-dev.png dist/cat-dev.png",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -16,5 +19,7 @@
   "bugs": {
     "url": "https://github.com/yuanhaoyu/markCat/issues"
   },
-  "homepage": "https://github.com/yuanhaoyu/markCat#readme"
+  "homepage": "https://github.com/yuanhaoyu/markCat#readme",
+  "dependencies": {
+  }
 }

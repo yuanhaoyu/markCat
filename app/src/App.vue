@@ -3,8 +3,8 @@
    <van-sticky>
     <van-nav-bar
       title="MarkCat"
-      right-text="快速添加当前地址"
-      left-text="自定义添加当前地址"
+      right-text="快速收藏"
+      left-text="自定义收藏"
       @click-right="handleAdd"
       @click-left="()=>{alert('暂未开放')}"
     />
@@ -27,38 +27,76 @@
           v-for="(item, index) in currentLists"
           :key="index"
           @click="handleLink(item)"
+          :icon="item.favIconUrl"
           :title="item.title"
           :label="item.url">
             <div>
-              <van-button size="mini" type="primary" @click.stop="handleUpdate(item)">更新</van-button>
-              <van-button size="mini" type="danger" @click.stop="handleDel(item)">删除</van-button>
+              <van-button size="mini" plain type="primary" @click.stop="handleUpdate(item)">更新</van-button>
+              <van-button size="mini" plain type="success" @click.stop="handleEdit(item)">编辑</van-button>
+              <van-button size="mini" plain type="danger" @click.stop="handleDel(item)">删除</van-button>
             </div>
         </van-cell>
       </van-list>
-      <p class="clear" @click="clearAllStorage">clear</p>
+      <p class="clear" @click="handleClear">clear</p>
     </div>
    </div>
+   <van-popup v-model:show="popupShow">
+      <van-form @submit="onSubmit">
+        <van-field
+          v-model="password"
+          type="password"
+          name="密码"
+          label="密码"
+          placeholder="密码"
+          :rules="[{ required: true, message: '请填写密码' }]"
+        />
+        <div style="margin: 16px;">
+          <van-button  size="mini"  type="primary" native-type="submit">
+            提交
+          </van-button>
+          <van-button  size="mini"  native-type="submit" @click="popupFlag = false">
+            关闭
+          </van-button>
+        </div>
+      </van-form>
+   </van-popup>
  </div>
 </template>
 
 <script>
+import { linkNewTab, getCurrentPageInfo, setStorage, getStorage, clearAllStorage, localMd5, encryptedMsg, decryptedMsg } from './util'
 const APPKEY = 'MARK__CAT'
 export default {
   name: 'App',
   data() {
     return {
+      password: '',
       activeKey: 0,
       searchValue: '',
       loading: false,
       finished: true,
       kind: 'common',
       lists: [],
+      popupFlag: false
     }
   },
   created() {
     this.getMarkLists()
   },
   computed: {
+    popupShow() {
+      return this.popupFlag && !this.currentKind.decrypted
+    },
+    currentKind() {
+      let result = []
+      this.lists.some(d => {
+        if (d.key === this.kind) {
+          result = d
+          return true
+        }
+      })
+      return result
+    },
     currentLists() {
       let result = []
       this.lists.some(d => {
@@ -71,33 +109,39 @@ export default {
     },
   },
   methods: {
-    handleSwitch() {
-      // TODO: add
+    onSubmit() {
+      // TODO:
+      alert(localMd5(this.password))
+      const pwd = localMd5(123123)
+      console.log(pwd)
+      const db = encryptedMsg(JSON.stringify({a:1}), pwd)
+      const info = decryptedMsg(db, pwd)
+      console.log(info)
+    },
+    handleSwitch(list) {
+      this.kind = list.kind
+      if (list.type === 'ee') {
+        this.popupFlag = true
+      }
+    },
+    async handleClear() {
+      await clearAllStorage()
+      this.getMarkLists()
+    },
+    handleEdit() {
+      alert('EDIT')
     },
     handleLink({url}) {
-      window.chrome.tabs.getAllInWindow(null,(tabs) => {
-        let index = 0
-        tabs.some((tab, i) => {
-          if (tab.active) {
-            index = i
-            return true
-          }
-        })
-        window.chrome.tabs.create({
-          windowId: null,
-          index,
-          url
-        })
-      })
+      linkNewTab(url)
     },
     async handleUpdate(item) {
       const { url } = item
-      const info = await this.getCurrentPageInfo()
+      const info = await getCurrentPageInfo()
       this.lists = this.lists.map(d => {
         if (d.key === this.kind) {
           const notOnlyFlag = d.value.some(d => {
             if (d.url === info.url) {
-              alert('更新失败！'+ d.title + '__已存在的收藏地址')
+              this.$toast.fail('更新失败！'+ d.title + '__已存在的收藏地址')
               return true
             }
           })
@@ -113,8 +157,8 @@ export default {
         return d
       })
       const DB = {}
-      DB[APPKEY] = JSON.parse(JSON.stringify(this.lists))
-      await this.setStorage(DB)
+      DB[APPKEY] = this.lists
+      await setStorage(DB)
       this.getMarkLists()
     },
     async handleDel({ url }) {
@@ -130,12 +174,12 @@ export default {
         return d
       })
       const DB = {}
-      DB[APPKEY] = JSON.parse(JSON.stringify(this.lists))
-      await this.setStorage(DB)
+      DB[APPKEY] = this.lists
+      await setStorage(DB)
       this.getMarkLists()
     },
     async handleAdd() {
-      const info = await this.getCurrentPageInfo()
+      const info = await getCurrentPageInfo()
       this.lists = this.lists.map(d => {
         if (d.key === this.kind) {
           if (!d.value) {
@@ -143,7 +187,7 @@ export default {
           }
           const notOnlyFlag = d.value.some(d => {
             if (d.url === info.url) {
-              alert('添加失败！'+ d.title + '__已存在的收藏地址')
+              this.$toast.fail('添加失败！'+ d.title + '__已存在的收藏地址')
               return true
             }
           })
@@ -154,30 +198,28 @@ export default {
         return d
       })
       const DB = {}
-      DB[APPKEY] = JSON.parse(JSON.stringify(this.lists))
-      await this.setStorage(DB)
+      DB[APPKEY] = this.lists
+      await setStorage(DB)
       this.getMarkLists()
-    },
-    async getCurrentPageInfo() {
-      return new Promise(resolve => {
-        window.chrome.tabs.getSelected(null, async (tab) => {
-          resolve({
-            url: tab.url,
-            title: tab.title,
-          })
-        })
-      })
     },
     async getMarkLists() {
       try {
-        const DB = await this.getStorage(APPKEY)
+        const DB = await getStorage(APPKEY)
         if(DB.length) {
           this.lists = DB
         } else {
           this.lists = [
             {
               key: 'common',
-              label: '通用',
+              label: '常用收藏',
+              type: 'text',
+              value: [],
+            },
+            {
+              key: 'pwd',
+              type: 'ee',
+              label: '加密收藏',
+              decrypted: false,
               value: [],
             }
           ]
@@ -186,44 +228,20 @@ export default {
         console.error(error)
       }
     },
-    setStorage(obj) {
-      return new Promise(resolve => {
-        window.chrome.storage.sync.set(obj, async (d) => {
-          resolve(d)
-        })
-      })
-    },
-    getStorage(key) {
-      return new Promise(resolve => {
-        window.chrome.storage.sync.get(key, (result) => {
-          resolve(result[key] || [])
-        })
-      })
-    },
-    removeStorage(key) {
-      return new Promise(resolve => {
-        window.chrome.storage.sync.remove(key, (d) => {
-          this.getMarkLists()
-          resolve(d)
-        })
-      })
-    },
-    clearAllStorage() {
-      return new Promise(resolve => {
-        window.chrome.storage.sync.clear(async (d) => {
-          this.getMarkLists()
-          resolve(d)
-        })
-      })
-    }
   },
 }
 </script>
 
 <style lang="scss">
-
+html {
+  overflow-y: scroll;
+  -webkit-overflow-scrolling: touch;
+  ::-webkit-scrollbar {
+    display: none;
+  }
+}
 .container {
-  width: 464px;
+  width: 666px;
   margin: 0 auto;
 }
 .content--sidebar {

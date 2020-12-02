@@ -9,6 +9,6 @@
   ],
   "browser_action": {
     "default_icon": "cat-dev.png",
-    "default_popup": "app/dist/index.html"
+    "default_popup": "index.html"
   }
 }
