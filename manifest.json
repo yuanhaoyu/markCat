@@ -1,0 +1,14 @@
+{
+  "manifest_version": 2,
+  "name": "markCat",
+  "description": "mark",
+  "version": "0.1",
+  "permissions": [
+    "tabs",
+    "storage"
+  ],
+  "browser_action": {
+    "default_icon": "cat-dev.png",
+    "default_popup": "app/dist/index.html"
+  }
+}
